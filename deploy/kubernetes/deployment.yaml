@@ -1,0 +1,140 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ba-py03-db-browser-smoke
+  namespace: deployflow-test
+  labels: &id001
+    app.kubernetes.io/name: ba-py03-db-browser-smoke
+    app.kubernetes.io/managed-by: deployflow
+    app.kubernetes.io/instance: 106a5048-920f-42be-a927-c37619dcb572
+spec:
+  replicas: 1
+  selector:
+    matchLabels: *id001
+  template:
+    metadata:
+      labels: *id001
+      annotations:
+        deployflow.io/config-sha256: 8afa172660e0c13ac4db29d77d6eae5efb1595971e0d799cc3d3d68704705ef1
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+        fsGroup: 10001
+      containers:
+      - name: ba-py03-db-browser-smoke
+        image: ghcr.io/damibegud/m-py03-reading-shelves:9b77854c5b0186700695c563229a59cc8f9e571b
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8203
+          name: http
+        envFrom:
+        - configMapRef:
+            name: ba-py03-db-browser-smoke-config
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ba-py03-postgres-smoke
+              key: password
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+        startupProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          failureThreshold: 15
+          periodSeconds: 5
+      initContainers:
+      - name: postgres
+        image: docker.io/library/postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+        imagePullPolicy: IfNotPresent
+        restartPolicy: Always
+        args:
+        - postgres
+        - -c
+        - listen_addresses=127.0.0.1
+        - -p
+        - '5432'
+        env:
+        - name: POSTGRES_DB
+          value: application
+        - name: POSTGRES_USER
+          value: application
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ba-py03-postgres-smoke
+              key: password
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 70
+          runAsGroup: 70
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        - name: postgres-tmp
+          mountPath: /tmp
+        - name: postgres-run
+          mountPath: /var/run/postgresql
+        startupProbe:
+          exec:
+            command:
+            - pg_isready
+            - -h
+            - 127.0.0.1
+            - -p
+            - '5432'
+            - -U
+            - application
+            - -d
+            - application
+          periodSeconds: 2
+          failureThreshold: 30
+      volumes:
+      - name: postgres-data
+        emptyDir:
+          sizeLimit: 256Mi
+      - name: postgres-tmp
+        emptyDir:
+          sizeLimit: 32Mi
+      - name: postgres-run
+        emptyDir:
+          sizeLimit: 16Mi
+  strategy:
+    type: Recreate
