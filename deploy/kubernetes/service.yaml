@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ba-pilot-python-pg-20261128
+  namespace: deployflow-test
+  labels: &id001
+    app.kubernetes.io/name: ba-pilot-python-pg-20261128
+    app.kubernetes.io/managed-by: deployflow
+    app.kubernetes.io/instance: 3c6c28af-2303-4b22-ac03-8066044467d6
+spec:
+  type: ClusterIP
+  selector: *id001
+  ports:
+  - name: http
+    port: 8203
+    targetPort: http

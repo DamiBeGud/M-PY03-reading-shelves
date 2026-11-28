@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ba-pilot-python-pg-20261128
+  namespace: deployflow-test
+  labels: &id001
+    app.kubernetes.io/name: ba-pilot-python-pg-20261128
+    app.kubernetes.io/managed-by: deployflow
+    app.kubernetes.io/instance: 3c6c28af-2303-4b22-ac03-8066044467d6
+spec:
+  replicas: 1
+  selector:
+    matchLabels: *id001
+  template:
+    metadata:
+      labels: *id001
+      annotations:
+        deployflow.io/config-sha256: 8afa172660e0c13ac4db29d77d6eae5efb1595971e0d799cc3d3d68704705ef1
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: ba-pilot-python-pg-20261128
+        image: ghcr.io/damibegud/m-py03-reading-shelves:a0be31be5b2d0ca019d5fe536ecce22ce59a712c
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8203
+          name: http
+        envFrom:
+        - configMapRef:
+            name: ba-pilot-python-pg-20261128-config
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ba-pilot-python-pg-20261128
+              key: DATABASE_URL
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+        startupProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          failureThreshold: 15
+          periodSeconds: 5
